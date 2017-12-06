@@ -11,14 +11,16 @@
 		return response;		\
 	}
 
+
 class IamDB : public IamDBInterface
 {
 public:
 	IamDB();
 	virtual ~IamDB();
 	
-	virtual ResponseAddUser  		AddUser(const RequestAddUser& reqAddUser);
-	virtual ResponseQueryUser 		QuerySingleUser(const RequestQueryUser& reqUser);
+	virtual ResponseAddUser  			AddUser(const RequestAddUser& reqAddUser);
+	virtual ResponseQueryUser 			QuerySingleUser(const RequestQueryUser& reqUser);
+	virtual ResponseQueryAllUsers 		QueryAllUsers(const RequestQueryUser& reqUser);
 	virtual bool Init(std::size_t size, std::string& dataSource);
 
 private:

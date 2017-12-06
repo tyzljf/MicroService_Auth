@@ -4,6 +4,7 @@
 #include <iostream>
 #include <vector>
 #include "Types.h"
+#include "DBTypes.h"
 
 enum ReturnCode
 {
@@ -19,6 +20,27 @@ struct UserInfo_t
 {
 public:
 	std::string userName;
+	std::string password;
+};
+
+class UserRow
+{
+public:
+	void copy(const UserRow& rhs)
+	{
+		id = rhs.id;
+		name = rhs.name;
+		password = rhs.password;
+	}
+
+	START_FILED(UserRow)
+	SET_INT_FILED(id)
+	SET_STRING_FILED(name, MAX_STR_NAME)
+	SET_STRING_FILED(password, MAX_STR_NAME)
+	END_FILED(UserRow)
+
+	uint64_t id;
+	std::string name;
 	std::string password;
 };
 
@@ -56,12 +78,20 @@ public:
 	std::vector<UserInfo_t> users;
 };
 
+class ResponseQueryAllUsers
+{
+public:
+	ReturnCode rc;
+	std::vector<UserRow> users;
+};
+
 class IamDBInterface
 {
 public:
 	//封装业务相关的数据库操作接口，如:
-	virtual ResponseAddUser 	 	AddUser(const RequestAddUser& reqAddUser) = 0;
-	virtual ResponseQueryUser 		QuerySingleUser(const RequestQueryUser& reqUser) = 0;
+	virtual ResponseAddUser 	 		AddUser(const RequestAddUser& reqAddUser) = 0;
+	virtual ResponseQueryUser 			QuerySingleUser(const RequestQueryUser& reqUser) = 0;
+	virtual ResponseQueryAllUsers 		QueryAllUsers(const RequestQueryUser& reqUser) = 0;
 
 public:
 	virtual bool Init(std::size_t size, std::string& dataSource) = 0;

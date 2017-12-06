@@ -1,17 +1,5 @@
 #include "DBConn.h"
-#include <string.h>
 #include <sstream>
-#include <unistd.h>
-
-#define CHECK_NULL_RETURN(param)		\
-		if(NULL == param)				\
-			return SYSTEM_OUT_MEM;		\
-
-#define BIND_INT_PARAM(hsmt, param)		\
-	ret = SQLBindParameter(hsmt, 1, SQL_PARAM_INPUT, SQL_C_UBIGINT, SQL_BIGINT, 8, 0, (SQLPOINTER)(&param), 0, NULL);
-
-#define BIND_STRING_PARAM(hsmt, param)	\
-	ret = SQLBindParameter(hsmt, 1, SQL_PARAM_INPUT, SQL_C_CHAR, SQL_LONGVARCHAR, 255, 0, (SQLPOINTER)(const_cast<char*>(param.c_str())), param.size(), NULL);
 
 DBConn::DBConn(SQLHENV &henv, std::string& dataSource)
 {
@@ -84,7 +72,7 @@ std::set<std::string> DBConn::initRestartSignals()
 	return signals;
 }
 
-CHECK_RC_E DBConn::IntQuery(std::size_t requestID, std::string& command, std::string param, uint64_t* intPtr)
+CHECK_RC_E DBConn::IntQuery(std::size_t requestID, std::string command, std::string param, uint64_t* intPtr)
 {
 	std::size_t size = command.length() + 1;
 	char* sql = new (std::nothrow) char[size];
@@ -173,7 +161,7 @@ CHECK_RC_E DBConn::IntQuery(std::size_t requestID, SQLHDBC& hdbc, SQLCHAR* comma
 	return DB_ERROR;
 }
 
-CHECK_RC_E DBConn::IntQuery(std::size_t requestID, std::string& command, std::vector<ParamToBind_t>& params, uint64_t* intPtr)
+CHECK_RC_E DBConn::IntQuery(std::size_t requestID, std::string command, std::vector<ParamToBind_t>& params, uint64_t* intPtr)
 {
 	std::size_t size = command.length() + 1;
 	char* sql = new (std::nothrow) char[size];
@@ -267,7 +255,7 @@ CHECK_RC_E DBConn::generalIntQuery(std::size_t requestID, SQLHDBC& hdbc, SQLCHAR
 	return DB_ERROR;
 }
 
-CHECK_RC_E DBConn::StringQuery(std::size_t requestID, std::string& command, std::vector<ParamToBind_t>& params, std::string& strRef)
+CHECK_RC_E DBConn::StringQuery(std::size_t requestID, std::string command, std::vector<ParamToBind_t>& params, std::string& strRef)
 {
 	std::size_t size = command.length() + 1;
 	char* sql = new (std::nothrow) char[size];
@@ -364,7 +352,7 @@ CHECK_RC_E DBConn::generalStringQuery(std::size_t requestID, SQLHDBC& hdbc, SQLC
 	return DB_ERROR;
 }
 
-CHECK_RC_E DBConn::dbCommand(std::size_t requestID, std::string& command, std::vector<ParamToBind_t>& params, uint_t* numRowAffect)
+CHECK_RC_E DBConn::dbCommand(std::size_t requestID, std::string command, std::vector<ParamToBind_t>& params, uint_t* numRowAffect)
 {
 	std::size_t size = command.length() + 1;
 	char *sql = new (std::nothrow) char[size];
@@ -476,6 +464,24 @@ CHECK_RC_E DBConn::checkReturnRCResponseKill(std::size_t requestID, SQLHDBC& hdb
 		}
 		return DB_ERROR;
 	}
+}
+
+CHECK_RC_E DBConn::checkConnectionRC(std::size_t requestID, SQLHDBC& hdbc, SQLHDBC& hsmt, SQLRETURN ret, const char* operName)
+{
+	if(SQL_SUCCEEDED(ret))
+	{
+		if(SQL_SUCCESS_WITH_INFO == ret)
+		{
+			printSQLGetDiagRec(requestID, SQL_HANDLE_DBC, hdbc, operName);
+		}
+		return DONE;
+	}
+	else
+	{
+		return DB_ERROR;
+	}
+
+	return DONE;
 }
 
 void DBConn::ExtractError(std::size_t requestID, SQLSMALLINT type, SQLHDBC& handle, const char* operName, bool& isReconnDB)
@@ -614,7 +620,7 @@ void DBConn::printSQLGetDiagRec(std::size_t requestID, SQLSMALLINT type, SQLHAND
 	}	while(SQL_NO_DATA != ret);
 }
 
-CHECK_RC_E DBConn::dbQuery(std::size_t requestID, std::string& command, std::vector<ParamToBind_t>& params, std::vector<QueryResult_t>& result)
+CHECK_RC_E DBConn::dbQuery(std::size_t requestID, std::string command, std::vector<ParamToBind_t>& params, std::vector<QueryResult_t>& result)
 {
 	std::size_t size = command.length() + 1;
 	char* sql = new (std::nothrow) char[size];
@@ -678,11 +684,11 @@ CHECK_RC_E DBConn::dbQuery(std::size_t requestID, SQLCHAR* command, std::vector<
 	}
 	std::cout << "dbQuery:###########################1" << std::endl;
 
-	ret = bindColums(requestID, m_hdbc,  hsmt,  result, cString, rLenAttr);
+	ret = bindOutput(requestID, m_hdbc,  hsmt,  result, cString, rLenAttr);
 	if(DONE != ret)
 	{	
 		std::cout << "Bind SQL column failed, ret=" << ret << std::endl;
-		cleanTmpBuffer(rLenAttr, result, cString);  
+		cleanTmpData(rLenAttr, result, cString);  
 		return DB_ERROR;	
 	}
 
@@ -701,20 +707,20 @@ CHECK_RC_E DBConn::dbQuery(std::size_t requestID, SQLCHAR* command, std::vector<
 		int cntNull = processNullData(requestID, result, rLenAttr); 
 		if(cntNull == result.size())   
 		{        
-			cleanTmpBuffer(rLenAttr, result, cString);    
+			cleanTmpData(rLenAttr, result, cString);    
 			return NAME_NOT_FOUND;  
 		}       
 		std::cout << "dbQuery:###########################5" << std::endl;
 
 		processStringData(requestID, result, cString, rLenAttr);     
 		std::cout << "dbQuery:###########################6" << std::endl;
-		cleanTmpBuffer(rLenAttr, result, cString);
+		cleanTmpData(rLenAttr, result, cString);
 		std::cout << "dbQuery:###########################7" << std::endl;
 		return DONE;	
 	}
 	else if(SQL_NO_DATA == ret)
 	{       
-		cleanTmpBuffer(rLenAttr, result, cString);		
+		cleanTmpData(rLenAttr, result, cString);		
 		return NAME_NOT_FOUND;
 	}
 
@@ -725,12 +731,12 @@ CHECK_RC_E DBConn::dbQuery(std::size_t requestID, SQLCHAR* command, std::vector<
 		ReconnectDB(requestID, m_hdbc);	
 	}	
 
-	cleanTmpBuffer(rLenAttr, result, cString);
+	cleanTmpData(rLenAttr, result, cString);
 	std::cout << "Return Error:" << ret << std::endl;	
 	return DB_ERROR;
 }
 
-CHECK_RC_E DBConn::bindColums(std::size_t requestID, SQLHDBC& hdbc,  HSTMT& hsmt,  std::vector<QueryResult_t>& result, std::vector<char*>& cString, SQLLEN* rLenAttr)
+CHECK_RC_E DBConn::bindOutput(std::size_t requestID, SQLHDBC& hdbc,  HSTMT& hsmt,  std::vector<QueryResult_t>& result, std::vector<char*>& cString, SQLLEN* rLenAttr)
 {
 	SQLUSMALLINT i;
 	SQLRETURN rc;
@@ -769,7 +775,7 @@ CHECK_RC_E DBConn::bindColums(std::size_t requestID, SQLHDBC& hdbc,  HSTMT& hsmt
 	return DONE;
 }
 
-void DBConn::cleanTmpBuffer(SQLLEN* rLenAttr, std::vector<QueryResult_t>&result, std::vector<char*>& cString)
+void DBConn::cleanTmpData(SQLLEN* rLenAttr, std::vector<QueryResult_t>&result, std::vector<char*>& cString)
 {    
 	if(rLenAttr)  
 	{      
@@ -839,12 +845,187 @@ void DBConn::processStringData(std::size_t requestID, std::vector<QueryResult_t>
 	}
 }
 
+CHECK_RC_E DBConn::copyRow(std::size_t requestID, 
+	int row, 
+	FiledRouter& router, 
+	std::vector<FlexQueryResult>& buffers,
+	std::vector<SQLLEN*>& indicatorArray)
+{    
+	std::cout << "The size of router is " << router.getSize() << std::endl;
+	for(int i = 0; i < router.getSize(); i++)
+	{
+		std::cout << "i=" << i << ", type=" << router.getFiledType(i) << std::endl;
+		if(router.getFiledType(i) == INT_PARAM)
+		{
+			*router.getFiledIntPtr(i) = buffers[i].intPtr[row];
+			std::cout << "i=" << i << ", value=" << *router.getFiledIntPtr(i) << std::endl;
+			continue;
+		}
+
+		std::cout << "begin to start extract string object ..., indicator=" << indicatorArray.size() << std::endl;
+		std::cout << "begin to start extract string object ..., indicator=" << indicatorArray[i][row] << std::endl;
+		if(indicatorArray[i][row] == -1)
+		{       
+			*router.getFiledStrPtr(i) = "";
+			std::cout << "i=" << i << ", value=" << *router.getFiledStrPtr(i) << std::endl;
+			continue;
+		}                
+
+		std::string tmpStr = std::string(buffers[i].strPtr + (row * buffers[i].strSize), indicatorArray[i][row]);
+		std::cout << "i=" << i << ", value=" << tmpStr << std::endl;
+
+		*router.getFiledStrPtr(i) = tmpStr;
+		std::cout << "i=" << i << ", value=" << *router.getFiledStrPtr(i) << std::endl;
+	}
+
+	return DONE;
+}
+
+CHECK_RC_E DBConn::bindColums(std::size_t requestID, 
+	HSTMT& hsmt, 
+	FiledRouter& router, 
+	std::vector<FlexQueryResult>& buffers,
+	IndicatorAarry& indicatorArray)
+{    
+	SQLUSMALLINT i;
+	SQLRETURN rc;
+	const char* operName = "SQLBindCol";
+	bool isReconnDB = false;
+	
+	for(i = 1; i <= router.getSize(); i++)
+	{        
+		SQLLEN* attr = indicatorArray.addIndicator();
+		buffers.push_back(FlexQueryResult());
+
+		buffers[i - 1].paramType = router.getFiledType(i - 1);
+		buffers[i - 1].strSize = router.getFiledSize(i - 1);
+		if(buffers[i - 1].paramType == INT_PARAM)
+		{
+			buffers[i - 1].intPtr = new (std::nothrow) uint64_t[FETCH_ROW_NUM];
+			if(NULL == buffers[i - 1].intPtr)
+			{                
+				std::cout << "flexQuery:: memory allocation failed." << std::endl;
+				cleanBuffers(buffers);
+				return SYSTEM_OUT_MEM;
+			}			
+
+			rc = SQLBindCol(hsmt, i, SQL_C_UBIGINT,  buffers[i - 1].intPtr, 8, attr); 
+		}        
+		else
+		{
+			//if(buffers[i - 1].strSize * FETCH_ROW_NUM > ULONG_MAX)
+			//{
+			//	std::cout << "Lost of data converation ...." << std::endl;  
+			//}            
+
+			buffers[i - 1].strPtr = new char[buffers[i - 1].strSize * FETCH_ROW_NUM];
+			if(NULL == buffers[i - 1].strPtr)
+			{
+				std::cout << "flexQuery:: memory allocation failed." << std::endl; 
+				cleanBuffers(buffers);
+				return SYSTEM_OUT_MEM;
+			}            
+
+			if(buffers[i - 1].paramType == STRING_PARAM)
+			{       
+				rc = SQLBindCol(hsmt, i, SQL_C_CHAR, buffers[i - 1].strPtr, buffers[i - 1].strSize, attr); 
+			}
+			else //BLOB 
+			{        
+				rc = SQLBindCol(hsmt, i, SQL_C_BINARY, buffers[i - 1].strPtr, buffers[i - 1].strSize, attr);
+			}
+		}
+
+		if(SQL_SUCCEEDED(rc)) 
+		{
+			if(SQL_SUCCESS_WITH_INFO == rc) 
+			{                
+				printSQLGetDiagRec(requestID, SQL_HANDLE_DBC, m_hdbc, operName); 
+			}
+		}
+		else
+		{
+			SQLFreeHandle(SQL_HANDLE_STMT, hsmt);
+			ExtractError(requestID, SQL_HANDLE_DBC, m_hdbc, operName, isReconnDB);
+			if(isReconnDB)	
+			{
+				ReconnectDB(requestID, m_hdbc);
+			}            
+			cleanBuffers(buffers);
+			return DB_ERROR;   
+		}          
+	}
+
+	return DONE;
+}
+
+CHECK_RC_E DBConn::flexQueryExecute(std::size_t requestID, HSTMT &hsmt, SQLCHAR* command, std::vector<ParamToBind_t>& params)
+{
+	const char* operName = "";
+	SQLRETURN ret;
+	
+	if(params.size() > 0)
+	{	
+		operName = "SQLPrepare";	
+		ret = SQLPrepare(hsmt, command, SQL_NTS);	
+		if(DONE != checkReturnRCResponseKill(requestID, m_hdbc, hsmt, ret, operName))	
+		{		        
+			std::cout << "SQLPrepare failed, ret=" << ret << std::endl;	  
+			return DB_ERROR;	       
+		}	      
+		
+		operName = "SQLBindParameter";	  
+		ret = bindParams(requestID, m_hdbc, hsmt, params, operName);	 
+		if(DONE != ret)	       
+		{			   
+			std::cout << "SQLBindParameter failed, ret=" << ret << std::endl;    
+			return DB_ERROR;	        
+		}		       
+
+		operName = "SQLExecute"; 
+		ret = SQLExecute(hsmt);    
+	}     
+	else    
+	{		
+		operName = "SQLExecDirect";		
+		ret = SQLExecDirect(hsmt, command, SQL_NTS);  
+	}
+	
+	if(DONE != checkReturnRCResponseKill(requestID, m_hdbc, hsmt, ret, operName))   
+	{		       
+		std::cout << "Execute SQL comand failed, ret=" << ret << std::endl;		
+		return DB_ERROR;	   
+	}     
+
+	return DONE;
+}
+
+void DBConn::cleanBuffers(std::vector<FlexQueryResult>& buffers)
+{
+	for(int i = 0; i < buffers.size(); i++)
+	{
+		if(buffers[i].paramType == INT_PARAM)
+		{
+			if(buffers[i].intPtr)
+			{
+				delete[] buffers[i].intPtr;
+				buffers[i].intPtr = NULL;
+			}
+		}
+		else
+		{
+			if(buffers[i].strPtr)
+			{
+				delete[] buffers[i].strPtr;
+				buffers[i].strPtr = NULL;
+			}
+		}
+	}
+}
+
 CHECK_RC_E DBConn::StartTranscation(std::size_t requestID)
 {
-	SQLINTEGER autoCommitMode;
-	SQLRETURN rc;
-	
-	rc = SQLSetConnectAttr(m_hdbc, SQL_ATTR_AUTOCOMMIT, (SQLPOINTER)SQL_AUTOCOMMIT_OFF, SQL_IS_INTEGER);
+	SQLRETURN rc = SQLSetConnectAttr(m_hdbc, SQL_ATTR_AUTOCOMMIT, (SQLPOINTER)SQL_AUTOCOMMIT_OFF, SQL_IS_INTEGER);
 	if(!SQL_SUCCEEDED(rc))
 	{
 		bool isReconnDB = false;
@@ -856,6 +1037,7 @@ CHECK_RC_E DBConn::StartTranscation(std::size_t requestID)
 		return DB_ERROR; 
 	}
 
+	SQLINTEGER autoCommitMode;
 	rc = SQLGetConnectAttr(m_hdbc, SQL_ATTR_AUTOCOMMIT, (SQLPOINTER)&autoCommitMode, sizeof(SQLINTEGER), NULL); 
 	if(!SQL_SUCCEEDED(rc))
 	{
@@ -927,6 +1109,50 @@ CHECK_RC_E DBConn::EndTranscation(std::size_t requestID)
 
 CHECK_RC_E DBConn::RollbackRranscation(std::size_t requestID)
 {
+	bool isReconnDB = false;
+	
+	SQLRETURN rc = SQLEndTran(SQL_HANDLE_DBC, m_hdbc, SQL_ROLLBACK);
+	if(!SQL_SUCCEEDED(rc))
+	{
+		ExtractError(requestID, SQL_HANDLE_DBC, m_hdbc, "SQLEndTran", isReconnDB);
+		if(isReconnDB)	
+		{
+			ReconnectDB(requestID, m_hdbc);
+		}
+		return DB_ERROR; 
+	}
 
+	rc = SQLSetConnectAttr(m_hdbc, SQL_ATTR_AUTOCOMMIT, (SQLPOINTER)SQL_AUTOCOMMIT_ON, SQL_IS_INTEGER);
+	if(!SQL_SUCCEEDED(rc))
+	{
+		ExtractError(requestID, SQL_HANDLE_DBC, m_hdbc, "SQLSetConnectAttr", isReconnDB);
+		if(isReconnDB)	
+		{
+			ReconnectDB(requestID, m_hdbc);
+		}
+		return DB_ERROR; 
+	}
+	
 	return DONE;
 }
+
+IndicatorAarry::~IndicatorAarry()
+{
+	for(int i = 0; i < indicatorArray.size(); i++) 
+	{
+		if(indicatorArray[i]) 
+		{
+			delete[] indicatorArray[i]; 
+			indicatorArray[i] = NULL;
+		}
+	}
+};
+
+SQLLEN* IndicatorAarry::addIndicator()
+{
+	SQLLEN* addr = new SQLLEN[FETCH_ROW_NUM];
+	indicatorArray.push_back(addr);
+	return addr;
+}
+
+

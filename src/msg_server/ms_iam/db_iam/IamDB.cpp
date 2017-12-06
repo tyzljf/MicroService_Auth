@@ -161,3 +161,30 @@ ResponseQueryUser IamDB::QuerySingleUser(const RequestQueryUser& reqUser)
 	return response;
 }
 
+ResponseQueryAllUsers IamDB::QueryAllUsers(const RequestQueryUser& reqUser)
+{
+	ResponseQueryAllUsers response;
+	response.rc = ADAP_OK;
+	std::size_t requestID = reqUser.requestID;
+	
+	//1. 获取连接对象	
+	CHECK_RC_E checkRC;
+	std::shared_ptr<DBConn> conn = m_connMgr.GetConnection();
+	std::string	command = "select id, name, password from users;";
+
+	std::vector<ParamToBind_t> params;
+	checkRC = conn->flexQuery(requestID, command, params, response.users);
+	if(NAME_NOT_FOUND == checkRC)
+	{
+		std::cout << "The user is empty."<< std::endl;
+		FUNCTION_RETURN(APAP_USER_NOT_EXIST)
+	}
+	if(DONE != checkRC)
+	{
+		std::cout << "Get the user information failed, checkRC=" << checkRC << std::endl;
+		FUNCTION_RETURN(ADAP_DB_ERROR)
+	}
+
+	return response;
+}
+

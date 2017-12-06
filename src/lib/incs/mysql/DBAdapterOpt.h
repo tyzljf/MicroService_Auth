@@ -3,17 +3,9 @@
 
 #include <vector>
 #include <iostream>
-#include "Types.h"
+#include "DBTypes.h"
 
 using namespace std;
-
-enum PARAM_TYPE_E
-{
-	INT_PARAM,
-	STRING_PARAM,
-	PATTERN_PARAM,
-	BLOB_PARAM
-};
 
 class ParamToBind_t
 {
