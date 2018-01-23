@@ -52,17 +52,48 @@ void DaemonInit()
 	}
 }
 
+mp_int32 AgentInit(const mp_char* pFullFilePath, CTaskPool& taskPool)
+{
+	//初始化程序路径
+	mp_int32 ret = CPath::GetInstance().Init(pFullFilePath);
+	if(MP_SUCCESS != ret)
+	{
+		std::cout << "CPath init failed, ret=" << ret << std::endl;
+		return COMMON_INERNAL_ERROR;
+	}
+
+	//从配置文件中获取日志级别、日志数量、日志大小
+	CLoger::GetInstance().Init(strFileName, strFilePath, logLevel, logCount,logMaxSize);
+
+	//初始化通信模块
+	mp_uint32 ret = Communication::GetInstance().Init();
+	if(MP_SUCCESS != ret)
+	{
+		return MP_FAILED;
+	}
+
+	ret = taskPool.Init();
+	if(MP_SUCCESS != ret)
+	{
+
+		return MP_FAILED;
+	}
+	
+	return MP_SUCCESS;
+}
+
+
 int main(int argc, char *argv[])
 {
-	TaskPool taskPool;
+	CTaskPool	taskPool;
 	ParseLogName(argv[0]);
 	//捕获程序异常退出时的堆栈信息
 	StackTracer stackTracer; 
 
 	DaemonInit();
 	
-	int ret = AgentInit(argv[0], taskPool);
-	if(ret < 0)
+	mp_int ret = AgentInit(argv[0], taskPool);
+	if(MP_SUCCESS != ret)
 	{
 		std::cout << "Agent init failed, ret:" << ret << std::endl;
 		return;
@@ -74,9 +105,9 @@ int main(int argc, char *argv[])
 		{
 			exit(0);
 		}
-		sleep(1);
+		CMPTime::DoSleep(2);
 	}
 
-	return 0;
+	return MP_SUCCESS;
 }
 
