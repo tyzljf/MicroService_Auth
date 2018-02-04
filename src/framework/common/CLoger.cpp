@@ -1,6 +1,11 @@
 #include "CLoger.h"
 #include <time.h>
 #include <stdarg.h> 
+#include <iostream>
+#include <sstream>
+#include <iomanip>
+#include <string.h>
+
 
 CLoger CLoger::m_instance;
 
@@ -68,7 +73,7 @@ mp_int32 CLoger::setLogMaxSize(mp_int32 logMaxSize)
 void CLoger::LogEx(const mp_string& module, mp_int32 level, std::size_t requestID, 
 		const mp_string& functionName,	 mp_int32 fileLine,	const mp_char* format, ...)
 {
-	if(m_logLevel < level)
+	if(m_logLevel > level)
 	{
 		return;
 	}
@@ -78,29 +83,42 @@ void CLoger::LogEx(const mp_string& module, mp_int32 level, std::size_t requestI
 	mp_time now;
 	mp_tm curTime;
 	va_list vaArg;
+	FILE *pFile = NULL;
 
 	CMPTime::Time(&now);
+	va_start(vaArg, format);
+
+	CAuthThreadLock tLock(&m_tLock);
 	mp_int32 iRet = CMPTime::LocalTimeR(&now, &curTime);
 	if(MP_FAILED == iRet)
 	{
+		va_end(vaArg);
 		return;
 	}
-
-	va_start(vaArg, format);
-	CAuthThreadLock tLock(&m_tLock);
 
 	//创建头部信息
 	MakeHead(level, acMsgHead, sizeof(acMsgHead));
 
 	//构造消息信息
+	ostringstream ss;
+	ss << "[" << curTime->tm_year + 1900 << "-" << setfill('0') << setw(2) 
+		<< curTime->tm_mon + 1 << "-" << setfill('0') << setw(2) 
+		<< curTime->tm_mday << " " << setfill('0') << setw(2)
+		<< curTime->tm_hour << ":" << setfill('0') << setw(2)
+		<< curTime->tm_min << ":"  << setfill('0') << setw(2)
+		<< curTime->tm_sec << "][thread id]" <<
+		std::hex << "[0x" << requestID << "]" << acMsgHead << "[" << functionName << "," << fileLine << "]" << format;
+	std::string msgFormat = ss.str();
+
 	
 	if(NULL == pFile)
 	{
 		pFile = openLogFile();
 	}
 
-	vfprintf(pFile, format, vaList);
-	
+	vfprintf(pFile, msgFormat, vaArg);
+
+	va_end(vaArg);
 	return;
 }
 
