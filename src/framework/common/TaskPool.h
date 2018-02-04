@@ -1,10 +1,10 @@
-#ifndef __TASKPOOL_H
-#define __TASKPOOL_H
+#ifndef __CTASKPOOL_H
+#define __CTASKPOOL_H
 
-class TaskPool
+class CTaskPool
 {
 public:
-	int Init() = { return 0};
+	int Init()  { return 0};
 };
 
 
