@@ -56,6 +56,12 @@ CURL* DCurlHttp::initHttpCurl(NodeParam* param)
     curl_easy_setopt(curl, CURLOPT_RANGE, range);
     curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
     curl_easy_setopt (curl, CURLOPT_NOSIGNAL, 1L);
+    
+    if (param->timeout > 0)
+    {
+        curl_easy_setopt(curl, CURLOPT_CONNECTTIMEOUT, param->timeout);  
+        curl_easy_setopt(curl, CURLOPT_TIMEOUT, param->timeout);
+    }
 
     return curl;
 }
