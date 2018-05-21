@@ -19,4 +19,9 @@ typedef struct tm           mp_tm;
 typedef pthread_mutex_t 	thread_mutex_t;
 typedef pthread_t			thread_t;
 
+
+#define MP_SUCCESS			 0
+#define MP_FAILED			-1
+
+
 #endif

@@ -1,7 +1,7 @@
 #include <iostream>
 #include <unistd.h>
 #include "StackTracer.h"
-#include "TaskPool.h"
+#include "CTaskPool.h"
 
 std::string AgentLogName = "agent.log";
 static bool gExitFlag = false;
@@ -63,7 +63,11 @@ mp_int32 AgentInit(const mp_char* pFullFilePath, CTaskPool& taskPool)
 	}
 
 	//从配置文件中获取日志级别、日志数量、日志大小
-	CLoger::GetInstance().Init(strFileName, strFilePath, logLevel, logCount,logMaxSize);
+	std::string strFileName("ms");
+	mp_int32 logLevel = 3;
+	mp_int32 logCount = 5;
+	mp_int32 logMaxSize = 30;
+	CLoger::GetInstance().Init(strFileName, CPath::GetInstance().GetLogPath(), logLevel, logCount,logMaxSize);
 
 	//初始化通信模块
 	mp_uint32 ret = Communication::GetInstance().Init();
@@ -75,7 +79,6 @@ mp_int32 AgentInit(const mp_char* pFullFilePath, CTaskPool& taskPool)
 	ret = taskPool.Init();
 	if(MP_SUCCESS != ret)
 	{
-
 		return MP_FAILED;
 	}
 	
@@ -92,7 +95,7 @@ int main(int argc, char *argv[])
 
 	DaemonInit();
 	
-	mp_int ret = AgentInit(argv[0], taskPool);
+	mp_int32 ret = AgentInit(argv[0], taskPool);
 	if(MP_SUCCESS != ret)
 	{
 		std::cout << "Agent init failed, ret:" << ret << std::endl;
