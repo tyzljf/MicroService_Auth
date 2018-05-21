@@ -54,6 +54,8 @@ CURL* DCurlHttp::initHttpCurl(NodeParam* param)
     curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, writeData);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, (void *)param);
     curl_easy_setopt(curl, CURLOPT_RANGE, range);
+    curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
+    curl_easy_setopt (curl, CURLOPT_NOSIGNAL, 1L);
 
     return curl;
 }

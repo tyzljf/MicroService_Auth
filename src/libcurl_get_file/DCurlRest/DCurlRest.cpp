@@ -29,10 +29,13 @@ DCURL_RETURN_E DCurlRest::GetFileLength(const std::string& url, long* fileLength
     curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
     curl_easy_setopt(curl, CURLOPT_HEADER, 1L);
     curl_easy_setopt(curl, CURLOPT_NOBODY, 1L);
+    curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
     
     std::cout << "GetFileLength url:" << url << std::endl;
-    if (CURLE_OK != curl_easy_perform(curl))
+    CURLcode ret = curl_easy_perform(curl);
+    if (CURLE_OK != ret)
     {
+        std::cout << "Error:" << curl_easy_strerror(ret) << std::endl;
         curl_easy_cleanup(curl);
         return DCURL_GET_FILELENGTH_FAILED;
     }
@@ -66,6 +69,7 @@ DCURL_RETURN_E DCurlRest::Download(const std::string& url, const std::string& lo
     uint8_t threadNum = 10;     //从配置文件中读取
     uint64_t blockSize = fileLength / threadNum;
     
+    //TODO: 后续使用线程池方式
     for (int i = 0; i <= threadNum; i++)
     {
         NodeParam *nodeParam = new NodeParam();
